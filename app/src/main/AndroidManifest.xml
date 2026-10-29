@@ -1,23 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.japanesestepbystep.hdvoice">
 
+    <!-- 僅在切換至連網模式時使用，離線高清語音包完全不需網路 -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Android 11+ 查詢日語離線 TTS 引擎必備權限 -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.TTS_SERVICE" />
-        </intent>
-    </queries>
 
     <application
         android:allowBackup="true"
         android:label="日語一步通 v2.3"
         android:supportsRtl="true"
+        android:hardwareAccelerated="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
