@@ -1,77 +1,87 @@
-package Japanese_step_by_step_voice
+package com.japanesestepbystep.hdvoice;
 
-import android.annotation.SuppressLint
-import android.os.Bundle
-import android.speech.tts.TextToSpeech
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.ComponentActivity
-import java.util.Locale
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.os.Bundle;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
-class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
-    private lateinit var webView: WebView
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
+public class MainActivity extends Activity {
+    private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        tts = TextToSpeech(this, this, "com.google.android.tts")
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        webView = new WebView(this);
+        setContentView(webView);
 
-        webView = WebView(this)
-        setContentView(webView)
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        // 【關鍵修復】允許 HTML5 Audio 與 WebAudio 無須額外手勢直接播放內嵌 Base64 高清語音
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(false);
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setTextZoom(100);
 
-        val s: WebSettings = webView.settings
-        s.javaScriptEnabled = true
-        s.domStorageEnabled = true
-        s.databaseEnabled = true
-        s.mediaPlaybackRequiresUserGesture = false
-        s.allowFileAccess = true
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // 強制鎖定預設音源為 HTML v2.3 內嵌高清語音包 (builtin)，並屏蔽任何舊版振盪器蜂鳴音
+                view.evaluateJavascript(
+                    "(function(){" +
+                    "  try { localStorage.setItem('jp_voice_source_mode', 'builtin'); } catch(e){}" +
+                    "  if (typeof setVoiceSourceMode === 'function') { setVoiceSourceMode('builtin'); }" +
+                    "})();",
+                    null
+                );
+            }
+        });
+        webView.setWebChromeClient(new WebChromeClient());
 
-        webView.addJavascriptInterface(AndroidTtsBridge(), "AndroidTTS")
-        webView.webViewClient = WebViewClient()
-        webView.webChromeClient = WebChromeClient()
-        webView.loadUrl("file:///android_asset/www/index.html")
+        // 載入原封不動放入 assets/www/index.html 的 japanese_step_by_step_app_v2.3_高清語音修復版.html
+        webView.loadUrl("file:///android_asset/www/index.html");
     }
 
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            val res = tts?.setLanguage(Locale.JAPAN)
-            ttsReady = (res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED)
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) {
+            // 切換至背景時立即停止正在播放的語音，防止背景殘留發音
+            webView.evaluateJavascript(
+                "if(typeof stopAllJapaneseAudio==='function'){stopAllJapaneseAudio();}",
+                null
+            );
         }
     }
 
-    inner class AndroidTtsBridge {
-        @JavascriptInterface
-        fun speak(text: String, rateStr: String?) {
-            if (!ttsReady || tts == null) return
-            val rate = rateStr?.toFloatOrNull() ?: 0.88f
-            tts?.stop()
-            tts?.setPitch(1.0f)
-            tts?.setSpeechRate(rate.coerceIn(0.60f, 1.15f))
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jp_v23_${System.currentTimeMillis()}")
-        }
-
-        @JavascriptInterface
-        fun stop() {
-            tts?.stop()
-        }
-    }
-
-    override fun onBackPressed() {
-        if (this::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
+    @Override
+    public void onBackPressed() {
+        if (webView != null) {
+            // 若彈窗開啟則先關閉彈窗，否則回首頁或退出
+            webView.evaluateJavascript(
+                "(function(){" +
+                "  var m1=document.getElementById('kanaDetailModal');" +
+                "  if(m1 && !m1.classList.contains('hidden')){ closeKanaModal(); return 'handled'; }" +
+                "  var home=document.getElementById('view_home');" +
+                "  if(home && home.classList.contains('hidden')){ switchMainTab('home'); return 'handled'; }" +
+                "  return 'exit';" +
+                "})();",
+                value -> {
+                    if (value == null || value.contains("exit")) {
+                        runOnUiThread(super::onBackPressed);
+                    }
+                }
+            );
         } else {
-            super.onBackPressed()
+            super.onBackPressed();
         }
-    }
-
-    override fun onDestroy() {
-        tts?.stop()
-        tts?.shutdown()
-        super.onDestroy()
     }
 }
