@@ -1,24 +1,80 @@
-name: Build Signed Japanese Step-by-Step v2.3 APK
+name: Repack & Sign HD Voice APK v2.3
+
 on:
   push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build-android-apk:
+  repack-apk:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 17
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 & Android Build Tools
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-      - name: Build Debug Signed APK
-        run: gradle assembleDebug
-      - name: Upload APK Artifact
+          java-version: '17'
+
+      - name: Inject HTML v2.3 HD Voice Pack & Sign APK (v2 Scheme)
+        run: |
+          python3 - << 'EOF'
+          import os, zipfile, shutil, subprocess
+          from pathlib import Path
+
+          apk_in = "日語一步通_v2.3_已簽章.apk"
+          html_in = "japanese_step_by_step_app_v2.3_高清語音修復版.html"
+          apk_unsigned = "unsigned.apk"
+          apk_aligned = "aligned.apk"
+          apk_out = "日語一步通_v2.3_高清語音修復版_已簽章.apk"
+
+          html_bytes = Path(html_in).read_bytes()
+          print(f"Loaded HTML v2.3: {len(html_bytes):,} bytes")
+
+          with zipfile.ZipFile(apk_in, 'r') as zin, zipfile.ZipFile(apk_unsigned, 'w') as zout:
+              replaced = []
+              for item in zin.infolist():
+                  if item.filename.startswith("META-INF/") and (
+                      item.filename.endswith((".SF", ".RSA", ".DSA")) or item.filename == "META-INF/MANIFEST.MF"
+                  ):
+                      continue
+                  if item.filename.endswith(".html"):
+                      info = zipfile.ZipInfo(item.filename)
+                      info.compress_type = zipfile.ZIP_DEFLATED
+                      info.external_attr = item.external_attr
+                      zout.writestr(info, html_bytes)
+                      replaced.append(item.filename)
+                  else:
+                      zout.writestr(item, zin.read(item.filename))
+              print("Replaced HTML paths in APK:", replaced)
+
+          # Align & Sign with Android SDK build-tools
+          build_tools = sorted(Path(os.environ["ANDROID_HOME"], "build-tools").glob("*"))[-1]
+          zipalign = str(build_tools / "zipalign")
+          apksigner = str(build_tools / "apksigner")
+
+          subprocess.run([
+              "keytool", "-genkeypair", "-v", "-keystore", "release.jks",
+              "-alias", "jpstep", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000",
+              "-storepass", "123456", "-keypass", "123456",
+              "-dname", "CN=JapaneseStepByStep, OU=Dev, O=App, L=HK, S=HK, C=HK"
+          ], check=True)
+
+          subprocess.run([zipalign, "-p", "-f", "-v", "4", apk_unsigned, apk_aligned], check=True)
+          subprocess.run([
+              apksigner, "sign", "--ks", "release.jks", "--ks-key-alias", "jpstep",
+              "--ks-pass", "pass:123456", "--key-pass", "pass:123456",
+              "--v1-signing-enabled", "true", "--v2-signing-enabled", "true",
+              "--out", apk_out, apk_aligned
+          ], check=True)
+          subprocess.run([apksigner, "verify", "-v", apk_out], check=True)
+          EOF
+
+      - name: Upload Signed HD Voice APK
         uses: actions/upload-artifact@v4
         with:
-          name: JapaneseStepByStep-v2.3-Signed-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: 日語一步通_v2.3_高清語音修復版_已簽章.apk
+          path: 日語一步通_v2.3_高清語音修復版_已簽章.apk
