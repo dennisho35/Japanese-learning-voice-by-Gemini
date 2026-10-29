@@ -1,0 +1,2 @@
+rootProject.name = "JapaneseStepByStep"
+include(":app")

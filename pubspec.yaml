@@ -1,0 +1,18 @@
+name: japanese_step_by_step_v23
+description: 日語一步通 v2.3 高清語音修復版 (Flutter WebView + 原生日語離線語音橋接)
+publish_to: 'none'
+version: 0.1+001
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.8.0
+  flutter_tts: ^4.0.2
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/japanese_step_by_step_app.html
