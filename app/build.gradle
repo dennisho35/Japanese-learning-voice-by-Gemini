@@ -1,41 +1,32 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
 }
 
 android {
-    namespace 'Japanese_step_by_step_voice'
+    namespace 'com.japanesestepbystep.hdvoice'
     compileSdk 34
 
     defaultConfig {
-        applicationId "Japanese_step_by_step_voice"
+        // 使用獨立 applicationId 避免與舊版 APK 發生簽章或覆蓋衝突
+        applicationId "com.japanesestepbystep.hdvoice"
         minSdk 24
         targetSdk 34
-        versionCode 001
-        versionName "0.1"
+        versionCode 23
+        versionName "2.3.0"
     }
 
     buildTypes {
-        debug {
-            minifyEnabled false
-        }
         release {
             minifyEnabled false
             signingConfig signingConfigs.debug
         }
     }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = '17'
-    }
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.12.0'
-    implementation 'androidx.activity:activity-ktx:1.8.2'
     implementation 'androidx.webkit:webkit:1.10.0'
 }
